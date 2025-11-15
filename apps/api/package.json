@@ -1,0 +1,31 @@
+{
+  "name": "numero-dos-sonhos-web-api",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "dev": "tsx --watch ./src/server.ts"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@aws-sdk/client-dynamodb": "^3.716.0",
+    "@aws-sdk/credential-providers": "^3.716.0",
+    "@fastify/cors": "^10.0.1",
+    "aws-sdk": "^2.1692.0",
+    "axios": "^1.7.9",
+    "dotenv": "^16.4.7",
+    "fastify": "^5.2.0",
+    "fastify-sse": "^1.0.0",
+    "mercadopago": "^2.1.0",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "zod": "^3.23.8"
+  },
+  "devDependencies": {
+    "@biomejs/biome": "^1.9.4",
+    "@types/graceful-fs": "^4.1.9",
+    "@types/node": "^22.10.2"
+  }
+}
