@@ -1,8 +1,18 @@
 import { useState } from "react";
+import { useForm } from "react-hook-form";
+import { zodResolver } from "@hookform/resolvers/zod";
+import * as z from "zod";
 import { Card } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
-import { Label } from "@/components/ui/label";
+import {
+  Form,
+  FormControl,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "@/components/ui/form";
+import { Input } from "@/components/ui/input";
 import {
   Select,
   SelectContent,
@@ -16,78 +26,71 @@ import NumberSphere from "./NumberSphere";
 import PaymentModal from "./PaymentModal";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
-import { useGenerateDreamNumbersResult } from "@/queries/dreams/generate-result.mutation";
+import { UseGenerateDreamParams } from "@/queries/dreams/generate-dream.mutation"
+
+const dreamFormSchema = z.object({
+  dream: z.string()
+    .min(10, "O sonho deve ter pelo menos 10 caracteres")
+    .max(255, "O sonho não pode ter mais de 255 caracteres"),
+  quantity: z.enum(["6", "15"], {
+    required_error: "Selecione a quantidade de números",
+  }),
+  minNumber: z.string()
+    .refine((val) => !isNaN(Number(val)) && Number(val) > 0, {
+      message: "Deve ser um número válido maior que 0",
+    }),
+  maxNumber: z.string()
+    .refine((val) => !isNaN(Number(val)) && Number(val) > 0, {
+      message: "Deve ser um número válido maior que 0",
+    }),
+}).refine((data) => Number(data.minNumber) < Number(data.maxNumber), {
+  message: "O número mínimo deve ser menor que o número máximo",
+  path: ["maxNumber"],
+});
+
+type DreamFormValues = z.infer<typeof dreamFormSchema>;
 
 const DreamCard = () => {
-  const [dream, setDream] = useState("");
-  const [quantity, setQuantity] = useState<"6" | "12">("6");
-  const [minNumber, setMinNumber] = useState("1");
-  const [maxNumber, setMaxNumber] = useState("60");
-  const [numbers, setNumbers] = useState<number[]>([]);
+  const [numbers, setNumbers] = useState<{number: number, description: string}[]>([]);
   const [interpretation, setInterpretation] = useState("");
   const [showResults, setShowResults] = useState(false);
   const [revealed, setRevealed] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [currentView, setCurrentView] = useState<"form" | "results">("form");
 
+  const form = useForm<DreamFormValues>({
+    resolver: zodResolver(dreamFormSchema),
+    defaultValues: {
+      dream: "",
+      quantity: "6",
+      minNumber: "1",
+      maxNumber: "60",
+    },
+  });
 
-  const generateDreamNumbers = useGenerateDreamNumbersResult({
+  const generateDreamMutation = UseGenerateDreamParams({
     onSuccess: (data) => {
-      console.log("Números dos sonhos gerados com sucesso:", data);
+      setInterpretation(data.dreamAnalogy);
+      setNumbers(data.luckyNumbers);
+      setShowResults(true);
+      setRevealed(false);
+      setCurrentView("results");
+      toast.success("Interpretação do sonho recebida!", {
+        description: "Veja seus números dos sonhos abaixo.",
+      });
     },
     onError: (error) => {
-      toast.error("Erro ao gerar números dos sonhos.");
+      toast.error("Erro ao interpretar o sonho: " + error.message);
     },
-  })
+  });
 
-  const handleGenerateDreamNumbers =  async () => {
-    await generateDreamNumbers.mutateAsync({
-      userMessage: dream
-    })
-  };
-
-  const generateNumbers = () => {
-    if (!dream.trim()) {
-      toast.error("Por favor, escreva seu sonho primeiro!");
-      return;
-    }
-
-    const min = parseInt(minNumber) || 1;
-    const max = parseInt(maxNumber) || 60;
-
-    if (min >= max) {
-      toast.error("O número máximo deve ser maior que o mínimo!");
-      return;
-    }
-
-    const count = parseInt(quantity);
-    const generatedNumbers: number[] = [];
-    
-    while (generatedNumbers.length < count) {
-      const num = Math.floor(Math.random() * (max - min + 1)) + min;
-      if (!generatedNumbers.includes(num)) {
-        generatedNumbers.push(num);
-      }
-    }
-
-    generatedNumbers.sort((a, b) => a - b);
-
-    // Generate mystical interpretation
-    const interpretations = [
-      "A queda do seu sonho revela um anseio profundo por transformação e libertação. Em cada descenso há a esperança de renascimento sob um novo céu."
-    ];
-
-    const randomInterpretation =
-      interpretations[Math.floor(Math.random() * interpretations.length)];
-
-    setNumbers(generatedNumbers);
-    setInterpretation(randomInterpretation);
-    setShowResults(true);
-    setRevealed(false);
-    setCurrentView("results");
-
-    toast.success("Números dos sonhos gerados!", {
-      description: "Revele-os para descobrir sua sorte!",
+  const handleGenerateDream = (values: DreamFormValues) => {
+    generateDreamMutation.mutate({
+      body: {
+        userMessage: values.dream,
+        totalNumber: parseInt(values.quantity),
+        numberRange: [parseInt(values.minNumber), parseInt(values.maxNumber)],
+      },
     });
   };
 
@@ -124,73 +127,115 @@ const DreamCard = () => {
                 : "-translate-x-full opacity-0 absolute inset-0 pointer-events-none"
             )}
           >
-            {/* Dream input */}
-            <div className="space-y-2">
-              <Label htmlFor="dream" className="text-foreground/90 flex items-center gap-2">
-                <Sparkles className="w-4 h-4 text-accent" />
-                Conte seu sonho
-              </Label>
-              <Textarea
-                id="dream"
-                placeholder="Descreva seu sonho em detalhes..."
-                value={dream}
-                onChange={(e) => setDream(e.target.value.slice(0, 255))}
-                maxLength={255}
-                className="min-h-[120px] backdrop-blur-sm bg-input/50 border-primary/20 focus:border-primary/50 transition-colors resize-none p-4"
-              />
-              <p className="text-xs text-muted-foreground text-right">
-                {dream.length}/255 caracteres
-              </p>
-            </div>
-
-            {/* Settings */}
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="quantity">Quantidade de números</Label>
-                <Select value={quantity} onValueChange={(value: "6" | "12") => setQuantity(value)}>
-                  <SelectTrigger id="quantity" className="backdrop-blur-sm bg-input/50 border-primary/20">
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent className="backdrop-blur-xl bg-card/95">
-                    <SelectItem value="6">6 números</SelectItem>
-                    <SelectItem value="12">12 números</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="min">Número mínimo</Label>
-                <Input
-                  id="min"
-                  type="number"
-                  value={minNumber}
-                  onChange={(e) => setMinNumber(e.target.value)}
-                  className="backdrop-blur-sm bg-input/50 border-primary/20 focus:border-primary/50"
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(handleGenerateDream)} className="space-y-6">
+                {/* Dream input */}
+                <FormField
+                  control={form.control}
+                  name="dream"
+                  render={({ field }) => (
+                    <FormItem>
+                      <FormLabel className="text-foreground/90 flex items-center gap-2">
+                        <Sparkles className="w-4 h-4 text-accent" />
+                        Conte seu sonho
+                      </FormLabel>
+                      <FormControl>
+                        <Textarea
+                          placeholder="Descreva seu sonho em detalhes..."
+                          className="min-h-[120px] backdrop-blur-sm bg-input/50 border-primary/20 focus:border-primary/50 transition-colors resize-none"
+                          {...field}
+                        />
+                      </FormControl>
+                      <div className="flex justify-between items-center">
+                        <FormMessage />
+                        <p className="text-xs text-muted-foreground">
+                          {field.value.length}/255 caracteres
+                        </p>
+                      </div>
+                    </FormItem>
+                  )}
                 />
-              </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="max">Número máximo</Label>
-                <Input
-                  id="max"
-                  type="number"
-                  value={maxNumber}
-                  onChange={(e) => setMaxNumber(e.target.value)}
-                  className="backdrop-blur-sm bg-input/50 border-primary/20 focus:border-primary/50"
-                />
-              </div>
-            </div>
+                {/* Settings */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <FormField
+                    control={form.control}
+                    name="quantity"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Quantidade de números</FormLabel>
+                        <Select onValueChange={field.onChange} defaultValue={field.value}>
+                          <FormControl>
+                            <SelectTrigger className="backdrop-blur-sm bg-input/50 border-primary/20">
+                              <SelectValue />
+                            </SelectTrigger>
+                          </FormControl>
+                          <SelectContent className="backdrop-blur-xl bg-card/95">
+                            <SelectItem value="6">6 números</SelectItem>
+                            <SelectItem value="15">15 números</SelectItem>
+                          </SelectContent>
+                        </Select>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
 
-            {/* Generate button */}
-            <Button
-              onClick={handleGenerateDreamNumbers}
-              className="w-full bg-gradient-to-r from-primary to-accent hover:opacity-90 transition-all shadow-[0_0_30px_hsl(var(--dream-glow)/0.3)] hover:shadow-[0_0_40px_hsl(var(--dream-glow)/0.5)] group relative overflow-hidden"
-              size="lg"
-            >
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent translate-x-[-200%] group-hover:translate-x-[200%] transition-transform duration-1000" />
-              <Wand2 className="w-5 h-5 mr-2 animate-float" />
-              Gerar números do sonho
-            </Button>
+                  <FormField
+                    control={form.control}
+                    name="minNumber"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Número mínimo</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            className="backdrop-blur-sm bg-input/50 border-primary/20 focus:border-primary/50"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+
+                  <FormField
+                    control={form.control}
+                    name="maxNumber"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>Número máximo</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            className="backdrop-blur-sm bg-input/50 border-primary/20 focus:border-primary/50"
+                            {...field}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+
+                {/* Generate button */}
+                <Button
+                  type="submit"
+                  disabled={generateDreamMutation.isPending}
+                  className="w-full bg-gradient-to-r from-primary to-accent hover:opacity-90 transition-all shadow-[0_0_30px_hsl(var(--dream-glow)/0.3)] hover:shadow-[0_0_40px_hsl(var(--dream-glow)/0.5)] group relative overflow-hidden disabled:opacity-70"
+                  size="lg"
+                >
+                  <div className={cn(
+                    "absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent transition-transform duration-1000",
+                    generateDreamMutation.isPending 
+                      ? "animate-shimmer" 
+                      : "translate-x-[-200%] group-hover:translate-x-[200%]"
+                    )} 
+                  />
+                  <Wand2 className="w-5 h-5 -mb-2  animate-float" />
+                  {generateDreamMutation.isPending ? "Gerando..." : "Gerar números do sonho"}
+                </Button>
+              </form>
+            </Form>
           </div>
 
           {/* Results View */}
@@ -233,13 +278,14 @@ const DreamCard = () => {
                 Seus números dos sonhos
               </h3>
               
-              <div className="flex flex-wrap justify-center gap-3 md:gap-4 py-4">
-                {numbers.map((number, index) => (
+              <div className="flex flex-wrap justify-center gap-4 md:gap-6 py-4">
+                {numbers.map((item, index) => (
                   <NumberSphere
                     key={index}
-                    number={number}
+                    number={item.number}
                     revealed={revealed}
                     index={index}
+                    word={item.description}
                   />
                 ))}
               </div>
