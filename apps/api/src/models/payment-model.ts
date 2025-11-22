@@ -6,4 +6,5 @@ export interface PaymentModel {
   status: string
   timestamp: string
   dreamResult: DreamModel
+  idempotencyKey: string
 }

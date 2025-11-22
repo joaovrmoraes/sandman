@@ -57,6 +57,10 @@ const DreamCard = () => {
   const [revealed, setRevealed] = useState(false);
   const [showPaymentModal, setShowPaymentModal] = useState(false);
   const [currentView, setCurrentView] = useState<"form" | "results">("form");
+  const [dreamGeneratedData, setDreamGeneratedData] = useState<{
+    dreamAnalogy: string;
+    luckyNumbers: {number: number, description: string}[];
+  } | null>(null);
 
   const form = useForm<DreamFormValues>({
     resolver: zodResolver(dreamFormSchema),
@@ -72,6 +76,7 @@ const DreamCard = () => {
     onSuccess: (data) => {
       setInterpretation(data.dreamAnalogy);
       setNumbers(data.luckyNumbers);
+      setDreamGeneratedData(data)
       setShowResults(true);
       setRevealed(false);
       setCurrentView("results");
@@ -308,6 +313,10 @@ const DreamCard = () => {
         open={showPaymentModal}
         onClose={() => setShowPaymentModal(false)}
         onPaymentConfirmed={handlePaymentConfirmed}
+        dreamResult={{
+          dreamAnalogy: interpretation,
+          luckyNumbers: numbers,
+        }}
       />
     </>
   );

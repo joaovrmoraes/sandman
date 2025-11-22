@@ -7,6 +7,7 @@ export interface PaymentRepository {
     paymentId,
     status,
     timestamp,
+    idempotencyKey,
   }: PaymentModel): Promise<void>
   updateStatus({
     paymentId,

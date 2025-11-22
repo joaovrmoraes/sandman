@@ -18,27 +18,40 @@ export class DynamoPaymentRepository implements PaymentRepository {
     paymentId,
     status,
     timestamp,
+    idempotencyKey,
   }: PaymentModel): Promise<void> {
-    const command = new PutItemCommand({
-      TableName: this.tableName,
-      Item: {
-        paymentId: { S: String(paymentId) },
-        email: { S: email },
-        status: { S: status },
-        dreamResult: {
-          M: Object.entries(dreamResult).reduce(
-            (acc, [key, value]) => {
-              acc[key] = { S: String(value) }
-              return acc
+    try {
+      const command = new PutItemCommand({
+        TableName: this.tableName,
+        Item: {
+          paymentId: { S: String(paymentId) },
+          email: { S: email },
+          status: { S: status },
+          dreamResult: {
+            M: {
+              dreamAnalogy: { S: dreamResult.dreamAnalogy },
+              luckyNumbers: {
+                L: dreamResult.luckyNumbers.map(num => ({
+                  M: {
+                    number: { N: String(num.number) },
+                    description: { S: num.description },
+                  },
+                })),
+              },
             },
-            {} as Record<string, { S: string }>
-          ),
+          },
+          timestamp: { S: timestamp },
+          idempotencyKey: { S: idempotencyKey },
         },
-        timestamp: { S: timestamp },
-      },
-    })
+      })
 
-    await this.client.send(command)
+      console.log('[DynamoDB] Saving payment:', { paymentId, email, status })
+      await this.client.send(command)
+      console.log('[DynamoDB] Payment saved successfully')
+    } catch (error) {
+      console.error('[DynamoDB] Error saving payment:', error)
+      throw error
+    }
   }
 
   async updateStatus({

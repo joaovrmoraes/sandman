@@ -10,6 +10,7 @@ export class CreatePaymentUseCase {
     paymentId,
     status,
     timestamp,
+    idempotencyKey,
   }: PaymentModel): Promise<void> {
     await this.paymentRepository.create({
       dreamResult,
@@ -17,6 +18,7 @@ export class CreatePaymentUseCase {
       paymentId,
       status,
       timestamp,
+      idempotencyKey,
     })
 
     console.log(`[create-payment] - ${new Date().toISOString()}`)

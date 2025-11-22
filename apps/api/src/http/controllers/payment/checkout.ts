@@ -25,12 +25,14 @@ export async function checkout(request: FastifyRequest, reply: FastifyReply) {
 
   console.log(`[checkout] - ${new Date().toISOString()}`)
 
+  const idempotencyKey = randomUUID().toString()
+
   const client = new MercadoPagoConfig({
     accessToken:
       (process.env.IS_OFFLINE === 'true'
         ? process.env.MP_ACCESS_TOKEN_DEV
         : process.env.MP_ACCESS_TOKEN) ?? '',
-    options: { timeout: 5000, idempotencyKey: 'abc' },
+    options: { timeout: 5000, idempotencyKey },
   })
 
   const payment = new Payment(client)
@@ -44,25 +46,29 @@ export async function checkout(request: FastifyRequest, reply: FastifyReply) {
     },
   }
 
-  const generatedIdempotencyKey = () => {
-    return `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`
-  }
-
   const requestOptions = {
-    idempotencyKey: generatedIdempotencyKey(),
+    idempotencyKey,
   }
 
   let paymentResponse: any
 
-  await payment
-    .create({ body, requestOptions })
-    .then(response => {
-      paymentResponse = response
+  try {
+    paymentResponse = await payment.create({ body, requestOptions })
+    console.log('[MercadoPago Payment Success]', paymentResponse)
+  } catch (error) {
+    console.log('[Request Body]', body, requestOptions)
+    console.error('[MercadoPago Payment Error]', error)
+    return reply.status(500).send({
+      error: 'Failed to create payment with MercadoPago',
+      details: error instanceof Error ? error.message : 'Unknown error',
     })
-    .catch(error => {
-      console.log(body, requestOptions)
-      console.error('[MercadoPago Payment Error]', error)
+  }
+
+  if (!paymentResponse || !paymentResponse.id) {
+    return reply.status(500).send({
+      error: 'Invalid payment response from MercadoPago',
     })
+  }
 
   const bodyDynamo = {
     paymentId: paymentResponse.id,
@@ -70,11 +76,20 @@ export async function checkout(request: FastifyRequest, reply: FastifyReply) {
     status: paymentResponse.status,
     timestamp: new Date().toISOString(),
     dreamResult,
+    idempotencyKey,
   }
 
   const createPaymentUseCase = makeCreatePaymentUseCase()
 
-  await createPaymentUseCase.execute(bodyDynamo)
+  try {
+    await createPaymentUseCase.execute(bodyDynamo)
+  } catch (error) {
+    console.error('[DynamoDB Error]', error)
+    return reply.status(500).send({
+      error: 'Failed to save payment to database',
+      details: error instanceof Error ? error.message : 'Unknown error',
+    })
+  }
 
   return reply.send({
     message: paymentResponse,

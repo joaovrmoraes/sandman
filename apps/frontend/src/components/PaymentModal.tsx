@@ -1,4 +1,5 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
+import { useForm } from "react-hook-form";
 import {
   Dialog,
   DialogContent,
@@ -9,31 +10,75 @@ import {
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { QrCode, Check, Sparkles, Copy } from "lucide-react";
+import { Check, Sparkles, Copy } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
+import { UseGenerateCheckoutMutation } from "@/queries/payment/generate-checkout.mutation";
+import { usePaymentSSE } from "@/hooks/use-payment-sse";
 
 interface PaymentModalProps {
   open: boolean;
   onClose: () => void;
   onPaymentConfirmed: () => void;
+  dreamResult?: {
+    dreamAnalogy: string;
+    luckyNumbers: {number: number, description: string}[];
+  };
 }
 
-const PaymentModal = ({ open, onClose, onPaymentConfirmed }: PaymentModalProps) => {
+interface EmailFormData {
+  email: string;
+}
+
+interface PaymentResponse {
+  message: {
+    id: number;
+    point_of_interaction: {
+      transaction_data: {
+        qr_code: string;
+        qr_code_base64: string;
+        ticket_url: string;
+      };
+    };
+  };
+}
+
+const PaymentModal = ({ open, onClose, onPaymentConfirmed, dreamResult }: PaymentModalProps) => {
   const [countdown, setCountdown] = useState(60);
   const [isPaid, setIsPaid] = useState(false);
-  const [email, setEmail] = useState("");
   const [showPayment, setShowPayment] = useState(false);
+  const [paymentData, setPaymentData] = useState<PaymentResponse | null>(null);
   const { toast } = useToast();
   
-  // Código PIX simulado
-  const pixCode = "00020126580014br.gov.bcb.pix0136a1b2c3d4-e5f6-7890-abcd-ef1234567890520400005303986540519.995802BR5925GERADOR NUMEROS SONHOS6009SAO PAULO62070503***63041D3E";
+  const { register, handleSubmit, formState: { errors }, reset } = useForm<EmailFormData>();
+
+  // Função chamada quando o pagamento for confirmado via SSE
+  const handlePaymentConfirmed = useCallback(() => {
+    console.log("[PaymentModal] Pagamento confirmado via SSE!");
+    setIsPaid(true);
+    toast({
+      title: "Pagamento confirmado! 🎉",
+      description: "Seu pagamento foi detectado com sucesso",
+    });
+    
+    setTimeout(() => {
+      onPaymentConfirmed();
+      onClose();
+    }, 2000);
+  }, [toast, onPaymentConfirmed, onClose]);
+
+  // Hook SSE - conecta quando temos paymentData
+  const { isConnected } = usePaymentSSE(
+    paymentData?.message?.id || null, 
+    handlePaymentConfirmed
+  );
 
   useEffect(() => {
     if (!open) {
       setCountdown(60);
       setIsPaid(false);
-      setEmail("");
       setShowPayment(false);
+      setPaymentData(null);
+      reset();
       return;
     }
 
@@ -50,27 +95,62 @@ const PaymentModal = ({ open, onClose, onPaymentConfirmed }: PaymentModalProps) 
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [open, showPayment]);
+  }, [open, showPayment, reset]);
 
-  const handleEmailSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!email || !email.includes("@")) {
+  const generateCheckoutMutation = UseGenerateCheckoutMutation({
+    onSuccess: (data: PaymentResponse) => {
+      console.log("[PaymentModal] Checkout gerado:", data);
+      setPaymentData(data);
+      setShowPayment(true);
       toast({
-        title: "E-mail inválido",
-        description: "Por favor, insira um e-mail válido",
+        title: "QR Code gerado!",
+        description: "Escaneie o QR Code para efetuar o pagamento",
+      });
+    },
+    onError: (error) => {
+      toast({
+        title: "Erro ao gerar checkout",
+        description: error.message,
+        variant: "destructive",
+      });
+      setShowPayment(false);
+    },
+  });
+
+  const onSubmit = async (data: EmailFormData) => {
+    if (!dreamResult) {
+      toast({
+        title: "Erro",
+        description: "Resultado do sonho não encontrado",
         variant: "destructive",
       });
       return;
     }
-    setShowPayment(true);
+
+    await generateCheckoutMutation.mutateAsync({ 
+      body: {
+        email: data.email,
+        dreamResult: dreamResult,
+      } 
+    });
   };
 
   const handleCopyPixCode = () => {
-    navigator.clipboard.writeText(pixCode);
-    toast({
-      title: "Código copiado!",
-      description: "O código PIX foi copiado para a área de transferência",
-    });
+    const pixCode = paymentData?.message?.point_of_interaction?.transaction_data?.qr_code;
+    if (pixCode) {
+      navigator.clipboard.writeText(pixCode);
+      toast({
+        title: "Código copiado!",
+        description: "O código PIX foi copiado para a área de transferência",
+      });
+    }
+  };
+
+  const handleOpenPixLink = () => {
+    const ticketUrl = paymentData?.message?.point_of_interaction?.transaction_data?.ticket_url;
+    if (ticketUrl) {
+      window.open(ticketUrl, "_blank");
+    }
   };
 
   const handleSimulatePayment = () => {
@@ -101,40 +181,66 @@ const PaymentModal = ({ open, onClose, onPaymentConfirmed }: PaymentModalProps) 
         <div className="flex flex-col items-center gap-6 py-6">
           {!showPayment ? (
             /* Email Form */
-            <form onSubmit={handleEmailSubmit} className="w-full space-y-4">
+            <form onSubmit={handleSubmit(onSubmit)} className="w-full space-y-4">
               <div className="space-y-2">
                 <Label htmlFor="email">E-mail</Label>
                 <Input
                   id="email"
                   type="email"
                   placeholder="seu@email.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
                   className="w-full"
-                  required
+                  {...register("email", { 
+                    required: "E-mail é obrigatório",
+                    pattern: {
+                      value: /^[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}$/i,
+                      message: "E-mail inválido"
+                    }
+                  })}
                 />
+                {errors.email && (
+                  <p className="text-sm text-destructive">{errors.email.message}</p>
+                )}
               </div>
               <Button
                 type="submit"
                 className="w-full bg-gradient-to-r from-primary to-accent hover:opacity-90 transition-opacity"
                 size="lg"
+                disabled={generateCheckoutMutation.isPending}
               >
-                Continuar para pagamento
+                {generateCheckoutMutation.isPending ? "Gerando..." : "Continuar para pagamento"}
               </Button>
             </form>
           ) : !isPaid ? (
             <>
-              {/* QR Code mockup */}
-              <div className="relative w-48 h-48 rounded-2xl bg-white p-4 flex items-center justify-center">
-                <QrCode className="w-full h-full text-gray-800" />
-                <div className="absolute inset-0 rounded-2xl shadow-[0_0_40px_hsl(var(--dream-glow)/0.3)]" />
-              </div>
+              {/* QR Code da API */}
+              {paymentData?.message?.point_of_interaction?.transaction_data?.qr_code_base64 ? (
+                <div className="relative w-64 h-64 rounded-2xl bg-white p-4 flex items-center justify-center">
+                  <img 
+                    src={`data:image/png;base64,${paymentData.message.point_of_interaction.transaction_data.qr_code_base64}`}
+                    alt="QR Code PIX"
+                    className="w-full h-full object-contain"
+                  />
+                  <div className="absolute inset-0 rounded-2xl shadow-[0_0_40px_hsl(var(--dream-glow)/0.3)]" />
+                </div>
+              ) : (
+                <div className="relative w-64 h-64 rounded-2xl bg-white p-4 flex items-center justify-center">
+                  <p className="text-gray-500">Carregando QR Code...</p>
+                </div>
+              )}
 
               <div className="text-center space-y-2">
                 <p className="text-3xl font-bold text-primary">R$ 1,99</p>
-                <p className="text-sm text-muted-foreground">
-                  Tempo restante: {countdown}s
-                </p>
+                <div className="flex flex-col items-center gap-1">
+                  <p className="text-sm text-muted-foreground">
+                    Tempo restante: {countdown}s
+                  </p>
+                  {isConnected && (
+                    <div className="flex items-center gap-2 text-xs text-green-600">
+                      <div className="w-2 h-2 bg-green-600 rounded-full animate-pulse" />
+                      <span>Aguardando pagamento...</span>
+                    </div>
+                  )}
+                </div>
               </div>
 
               {/* Copy PIX Code Button */}
@@ -143,6 +249,7 @@ const PaymentModal = ({ open, onClose, onPaymentConfirmed }: PaymentModalProps) 
                 variant="outline"
                 className="w-full gap-2"
                 size="lg"
+                disabled={!paymentData?.message?.point_of_interaction?.transaction_data?.qr_code}
               >
                 <Copy className="w-4 h-4" />
                 Copiar código PIX
