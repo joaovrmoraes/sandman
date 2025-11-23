@@ -16,7 +16,7 @@ export function usePaymentSSE(paymentId: number | null, onPaymentConfirmed: () =
     if (!paymentId) return;
 
     // URL do SSE
-    const sseUrl = `${import.meta.env.VITE_API_BASE_URL}sse`;
+    const sseUrl = `${import.meta.env.VITE_API_BASE_URL}/sse`;
 
     const eventSource = new EventSource(sseUrl);
     eventSourceRef.current = eventSource;
@@ -27,22 +27,25 @@ export function usePaymentSSE(paymentId: number | null, onPaymentConfirmed: () =
 
     eventSource.onmessage = (event) => {
       try {
-        // Ignora mensagens que não são JSON (como "sample data")
-        if (!event.data || event.data === "sample data" || !event.data.startsWith("{")) {
+        // Ignora mensagens vazias ou comentários
+        if (!event.data || !event.data.trim() || event.data.startsWith(':')) {
           return;
         }
 
+        console.log('[SSE] Mensagem recebida:', event.data.action);
+        
         const data: SSEPaymentData = JSON.parse(event.data);
 
         // Verifica se é uma atualização de pagamento e se é do nosso pagamento
         if (data.action === "payment.updated" && Number(data.data.id) === paymentId) {
+          console.log('[SSE] Pagamento confirmado');
           onPaymentConfirmed();
           
           // Fecha a conexão após confirmar o pagamento
           eventSource.close();
         }
       } catch (error) {
-        console.error("[SSE] Erro ao processar mensagem:", error);
+        console.error("[SSE] Erro ao processar mensagem:", error, event.data);
       }
     };
 
