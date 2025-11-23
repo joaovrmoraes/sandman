@@ -255,13 +255,16 @@ const PaymentModal = ({ open, onClose, onPaymentConfirmed, dreamResult }: Paymen
                 Copiar código PIX
               </Button>
 
-              <Button
-                onClick={handleSimulatePayment}
-                className="w-full bg-gradient-to-r from-primary to-accent hover:opacity-90 transition-opacity"
-                size="lg"
-              >
-                Simular Pagamento Concluído
-              </Button>
+              {/* Simular Pagamento - apenas em dev */}
+              {import.meta.env.VITE_ENABLE_PAYMENT_SIMULATION === 'true' && (
+                <Button
+                  onClick={handleSimulatePayment}
+                  className="w-full bg-gradient-to-r from-primary to-accent hover:opacity-90 transition-opacity"
+                  size="lg"
+                >
+                  Simular Pagamento Concluído
+                </Button>
+              )}
             </>
           ) : (
             <div className="flex flex-col items-center gap-4 py-8 animate-reveal">
