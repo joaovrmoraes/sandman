@@ -16,7 +16,7 @@ export function usePaymentSSE(paymentId: number | null, onPaymentConfirmed: () =
     if (!paymentId) return;
 
     // URL do SSE
-    const sseUrl = `${import.meta.env.VITE_API_BASE_URL}/sse`;
+    const sseUrl = `${import.meta.env.VITE_API_BASE_URL}sse`;
 
     const eventSource = new EventSource(sseUrl);
     eventSourceRef.current = eventSource;

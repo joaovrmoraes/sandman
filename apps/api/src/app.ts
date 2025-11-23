@@ -15,8 +15,22 @@ dotenv.config()
 export const app = fastify()
 
 app.register(fastifyCors, {
-  origin: 'http://localhost:8080',
-  methods: ['GET', 'POST'],
+  origin: (origin, cb) => {
+    const allowed = [
+      "http://localhost:8080",
+      "https://numerodossonhos.com.br",
+    ];
+
+    // requisições internas (ex: server-side) não têm origin
+    if (!origin) return cb(null, true);
+
+    if (allowed.includes(origin)) {
+      return cb(null, true);
+    }
+
+    return cb(new Error("Not Allowed"), false);
+  },
+  methods: ["GET", "POST"],
 })
 
 app.register(fastifySse)
