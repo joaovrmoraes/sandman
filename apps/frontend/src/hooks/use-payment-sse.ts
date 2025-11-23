@@ -16,8 +16,8 @@ export function usePaymentSSE(paymentId: number | null, onPaymentConfirmed: () =
     if (!paymentId) return;
 
     // URL do SSE
-    const sseUrl = `http://localhost:4000/sse`;
-    
+    const sseUrl = `${import.meta.env.VITE_API_BASE_URL}/sse`;
+
     console.log("[SSE] Conectando ao servidor... Payment ID:", paymentId);
     
     const eventSource = new EventSource(sseUrl);
