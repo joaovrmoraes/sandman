@@ -20,11 +20,9 @@ export type CheckoutPostRequest = z.infer<typeof CheckoutPostSchema>
 
 export async function CheckoutPost({body}: CheckoutPostRequest) {
     try {
-        console.log("Sending checkout request:", body)
         
         const response = await apiIsntance.post("/payment/checkout", body)
         
-        console.log("Checkout response:", response.data)
         return response.data
     } catch (error: unknown) {
         console.error("Error in CheckoutPost:", error)

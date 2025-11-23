@@ -18,13 +18,10 @@ export function usePaymentSSE(paymentId: number | null, onPaymentConfirmed: () =
     // URL do SSE
     const sseUrl = `${import.meta.env.VITE_API_BASE_URL}/sse`;
 
-    console.log("[SSE] Conectando ao servidor... Payment ID:", paymentId);
-    
     const eventSource = new EventSource(sseUrl);
     eventSourceRef.current = eventSource;
 
     eventSource.onopen = () => {
-      console.log("[SSE] Conexão estabelecida");
       setIsConnected(true);
     };
 
@@ -32,16 +29,13 @@ export function usePaymentSSE(paymentId: number | null, onPaymentConfirmed: () =
       try {
         // Ignora mensagens que não são JSON (como "sample data")
         if (!event.data || event.data === "sample data" || !event.data.startsWith("{")) {
-          console.log("[SSE] Ignorando mensagem não-JSON:", event.data);
           return;
         }
 
         const data: SSEPaymentData = JSON.parse(event.data);
-        console.log("[SSE] Mensagem recebida:", data);
 
         // Verifica se é uma atualização de pagamento e se é do nosso pagamento
         if (data.action === "payment.updated" && Number(data.data.id) === paymentId) {
-          console.log("[SSE] Pagamento confirmado!", data);
           onPaymentConfirmed();
           
           // Fecha a conexão após confirmar o pagamento
@@ -60,7 +54,6 @@ export function usePaymentSSE(paymentId: number | null, onPaymentConfirmed: () =
 
     // Cleanup: fecha a conexão quando o componente desmontar
     return () => {
-      console.log("[SSE] Fechando conexão...");
       eventSource.close();
       setIsConnected(false);
     };

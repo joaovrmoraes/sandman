@@ -43,7 +43,7 @@ interface PaymentResponse {
 }
 
 const PaymentModal = ({ open, onClose, onPaymentConfirmed, dreamResult }: PaymentModalProps) => {
-  const [countdown, setCountdown] = useState(60);
+  const [countdown, setCountdown] = useState( 5 * 60); // 5 minutos em segundos
   const [isPaid, setIsPaid] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
   const [paymentData, setPaymentData] = useState<PaymentResponse | null>(null);
@@ -53,7 +53,6 @@ const PaymentModal = ({ open, onClose, onPaymentConfirmed, dreamResult }: Paymen
 
   // Função chamada quando o pagamento for confirmado via SSE
   const handlePaymentConfirmed = useCallback(() => {
-    console.log("[PaymentModal] Pagamento confirmado via SSE!");
     setIsPaid(true);
     toast({
       title: "Pagamento confirmado! 🎉",
@@ -99,7 +98,6 @@ const PaymentModal = ({ open, onClose, onPaymentConfirmed, dreamResult }: Paymen
 
   const generateCheckoutMutation = UseGenerateCheckoutMutation({
     onSuccess: (data: PaymentResponse) => {
-      console.log("[PaymentModal] Checkout gerado:", data);
       setPaymentData(data);
       setShowPayment(true);
       toast({
