@@ -4,7 +4,8 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "tsx --watch ./src/server.ts"
+    "dev": "tsx --watch ./src/server.ts",
+    "dev:email": "email dev --dir ./src --port 3080"
   },
   "keywords": [],
   "author": "",
@@ -13,19 +14,27 @@
     "@aws-sdk/client-dynamodb": "^3.716.0",
     "@aws-sdk/credential-providers": "^3.716.0",
     "@fastify/cors": "^10.0.1",
+    "@react-email/components": "^1.0.1",
+    "@react-email/render": "^2.0.0",
+    "@types/react": "^18.3.23",
     "aws-sdk": "^2.1692.0",
     "axios": "^1.7.9",
     "dotenv": "^16.4.7",
     "fastify": "^5.2.0",
     "fastify-sse": "^1.0.0",
     "mercadopago": "^2.1.0",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "resend": "^6.5.2",
     "tsx": "^4.19.2",
     "typescript": "^5.7.2",
     "zod": "^3.23.8"
   },
   "devDependencies": {
     "@biomejs/biome": "^1.9.4",
+    "@react-email/preview-server": "5.0.5",
     "@types/graceful-fs": "^4.1.9",
-    "@types/node": "^22.10.2"
+    "@types/node": "^22.10.2",
+    "react-email": "^5.0.5"
   }
 }

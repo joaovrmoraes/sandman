@@ -1,6 +1,6 @@
 import type { PaymentRepository } from '../payment-repository'
 import type { DynamoDBClient } from '@aws-sdk/client-dynamodb'
-import { PutItemCommand, UpdateItemCommand } from '@aws-sdk/client-dynamodb'
+import { PutItemCommand, UpdateItemCommand, GetItemCommand } from '@aws-sdk/client-dynamodb'
 import type { PaymentModel } from '../../models/payment-model'
 
 export class DynamoPaymentRepository implements PaymentRepository {
@@ -73,5 +73,40 @@ export class DynamoPaymentRepository implements PaymentRepository {
     })
 
     await this.client.send(command)
+  }
+
+  async findByPaymentId(paymentId: number): Promise<PaymentModel | null> {
+    try {
+      const command = new GetItemCommand({
+        TableName: this.tableName,
+        Key: {
+          paymentId: { S: String(paymentId) },
+        },
+      })
+
+      const result = await this.client.send(command)
+
+      if (!result.Item) {
+        return null
+      }
+
+      return {
+        paymentId: Number(result.Item.paymentId.S),
+        email: result.Item.email.S!,
+        status: result.Item.status.S!,
+        timestamp: result.Item.timestamp.S!,
+        idempotencyKey: result.Item.idempotencyKey.S!,
+        dreamResult: {
+          dreamAnalogy: result.Item.dreamResult.M!.dreamAnalogy.S!,
+          luckyNumbers: result.Item.dreamResult.M!.luckyNumbers.L!.map(item => ({
+            number: Number(item.M!.number.N),
+            description: item.M!.description.S!,
+          })),
+        },
+      }
+    } catch (error) {
+      console.error('[DynamoDB] Error finding payment:', error)
+      throw error
+    }
   }
 }

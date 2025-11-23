@@ -1,5 +1,6 @@
 import type { FastifyReply, FastifyRequest } from 'fastify'
 import { makeUpdatePaymentUseCase } from '../../../use-case/factories/make-update-payment-use-case'
+import { makeSendDreamEmailUseCase } from '../../../use-case/factories/make-send-dream-email-use-case'
 import { sendSseData } from '../routes'
 
 export async function webhook(request: FastifyRequest, reply: FastifyReply) {
@@ -13,6 +14,7 @@ export async function webhook(request: FastifyRequest, reply: FastifyReply) {
   console.log(`[webhook] - ${new Date().toISOString()}`)
 
   const updatePaymentUseCase = makeUpdatePaymentUseCase()
+  const sendDreamEmailUseCase = makeSendDreamEmailUseCase()
 
   if (action === 'payment.updated') {
     try {
@@ -22,6 +24,11 @@ export async function webhook(request: FastifyRequest, reply: FastifyReply) {
       })
 
       sendSseData({ action, data })
+
+      // Enviar email com o resultado do sonho
+      await sendDreamEmailUseCase.execute({
+        paymentId: Number(data?.id),
+      })
     } catch (error) {
       console.log('Error updating payment', error)
     }

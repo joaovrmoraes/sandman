@@ -13,4 +13,5 @@ export interface PaymentRepository {
     paymentId,
     status,
   }: { paymentId: number; status: string }): Promise<void>
+  findByPaymentId(paymentId: number): Promise<PaymentModel | null>
 }

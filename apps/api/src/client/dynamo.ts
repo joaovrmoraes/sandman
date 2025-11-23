@@ -12,3 +12,7 @@ const client = new DynamoDBClient({
 })
 
 export const DynamoDb = client
+
+export function getDynamoClient() {
+  return client
+}

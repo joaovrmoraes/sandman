@@ -1,12 +1,14 @@
 import type { FastifyInstance } from 'fastify'
 import { dreamsRoutes } from './dreams/routes'
 import { paymentRoutes } from './payment/routes'
+import { emailRoutes } from './email/routes'
 
 const clients = new Set()
 
 export async function routes(app: FastifyInstance) {
   app.register(dreamsRoutes, { prefix: '/dreams' })
   app.register(paymentRoutes, { prefix: '/payment' })
+  app.register(emailRoutes, { prefix: '/email' })
 
   app.get('/sse', (request, reply) => {
     const options = {}
@@ -18,19 +20,10 @@ export async function routes(app: FastifyInstance) {
     request.raw.on('close', () => {
       clients.delete(reply.raw)
     })
-    // const interval = setInterval(() => {
-    //   console.log('sending data', index)
-    //   reply.sse({ event: 'test', data: index })
-    //   index++
-    //   if (index === 10) {
-    //     reply.sse('closing connection')
-    //     clearInterval(interval)
-    //   }
-    // }, 1000)
   })
 }
 
-export function sendSseData(data) {
+export function sendSseData(data: { action: string; data: { id: string } }) {
   for (const client of clients) {
     client.write(`data: ${JSON.stringify(data)}\n\n`)
   }
