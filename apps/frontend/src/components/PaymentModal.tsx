@@ -66,7 +66,7 @@ const PaymentModal = ({ open, onClose, onPaymentConfirmed, dreamResult }: Paymen
   }, [toast, onPaymentConfirmed, onClose]);
 
   // Hook SSE - conecta quando temos paymentData
-  const { isConnected } = usePaymentSSE(
+  const { isConnected, isPageVisible } = usePaymentSSE(
     paymentData?.message?.id || null, 
     handlePaymentConfirmed
   );
@@ -232,10 +232,16 @@ const PaymentModal = ({ open, onClose, onPaymentConfirmed, dreamResult }: Paymen
                   <p className="text-sm text-muted-foreground">
                     Tempo restante: {countdown}s
                   </p>
-                  {isConnected && (
+                  {isConnected && isPageVisible && (
                     <div className="flex items-center gap-2 text-xs text-green-600">
                       <div className="w-2 h-2 bg-green-600 rounded-full animate-pulse" />
                       <span>Aguardando pagamento...</span>
+                    </div>
+                  )}
+                  {!isPageVisible && (
+                    <div className="flex items-center gap-2 text-xs text-yellow-600">
+                      <div className="w-2 h-2 bg-yellow-600 rounded-full animate-pulse" />
+                      <span>Verificando pagamento...</span>
                     </div>
                   )}
                 </div>
